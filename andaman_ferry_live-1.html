@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Andaman Ferry Live</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:#06131d;color:#eaf6ff}
+header{height:64px;background:#081d2a;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #173545;position:relative;z-index:1000}
+.logo{font-weight:800;font-size:19px;letter-spacing:.3px}.logo span{color:#39d0ff}
+.status{font-size:12px;color:#8fe7a4}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#35d477;margin-right:6px}
+#map{height:calc(100vh - 64px);width:100%}
+.panel{position:absolute;z-index:900;top:82px;left:16px;width:330px;background:rgba(6,23,34,.94);backdrop-filter:blur(14px);border:1px solid #1b3d4d;border-radius:16px;box-shadow:0 12px 40px #0008;overflow:hidden}
+.panel h2{font-size:16px;margin:0;padding:16px 16px 4px}.sub{font-size:12px;color:#8fa9b7;padding:0 16px 12px}
+.filters{display:flex;gap:7px;padding:0 16px 14px}.filter{border:1px solid #285064;background:#0c2837;color:#b9d4df;border-radius:20px;padding:7px 11px;font-size:12px;cursor:pointer}.filter.active{background:#19a9d6;color:white;border-color:#19a9d6}
+.list{max-height:58vh;overflow:auto;border-top:1px solid #173545}.card{padding:13px 16px;border-bottom:1px solid #173545;cursor:pointer}.card:hover{background:#0b2736}.row{display:flex;justify-content:space-between;gap:10px}.name{font-weight:700;font-size:14px}.op{font-size:11px;color:#8fa9b7;margin-top:3px}.badge{font-size:10px;color:#8fe7a4;background:#123b2b;padding:4px 7px;border-radius:10px;height:max-content}.metrics{display:flex;gap:16px;margin-top:9px;font-size:11px;color:#a9c4cf}.metrics b{color:#edfaff;font-size:12px}.footer{padding:10px 16px;font-size:10px;color:#7794a2;background:#071b27}
+.legend{position:absolute;z-index:800;right:16px;bottom:18px;background:rgba(6,23,34,.92);padding:10px 12px;border-radius:12px;border:1px solid #1b3d4d;font-size:11px;color:#aac0ca}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#08202d;color:#eaf6ff}.leaflet-popup-content{margin:13px;font-size:12px}.leaflet-control-zoom a{background:#08202d;color:white;border-color:#244454}
+@media(max-width:700px){header{height:58px}.panel{top:auto;bottom:12px;left:10px;right:10px;width:auto}.list{max-height:31vh}.panel h2{padding-top:12px}.filters{padding-bottom:10px}.footer{display:none}#map{height:calc(100vh - 58px)}.legend{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🚢 <span>ANDAMAN</span> FERRY LIVE</div>
+  <div class="status"><span class="dot"></span>Demo tracking</div>
+</header>
+
+<div id="map"></div>
+
+<section class="panel">
+  <h2>Ferries in Andaman</h2>
+  <div class="sub">Passenger ferry tracking dashboard</div>
+  <div class="filters">
+    <button class="filter active" data-filter="All">All</button>
+    <button class="filter" data-filter="Makruzz">Makruzz</button>
+    <button class="filter" data-filter="Nautika">Nautika</button>
+  </div>
+  <div class="list" id="list"></div>
+  <div class="footer">Positions shown here are simulated demo data. Connect an authorized AIS/GPS feed for real tracking.</div>
+</section>
+
+<div class="legend">🟢 Underway &nbsp; • &nbsp; Speed in knots</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const ferries = [
+ {id:1,operator:"Makruzz",name:"Makruzz Gold",lat:11.744,lon:92.965,speed:22.4,heading:145,destination:"Swaraj Dweep",eta:"09:00"},
+ {id:2,operator:"Makruzz",name:"Makruzz Pearl",lat:11.650,lon:92.850,speed:21.1,heading:165,destination:"Port Blair",eta:"12:30"},
+ {id:3,operator:"Nautika",name:"Nautika Pro",lat:11.830,lon:92.970,speed:23.0,heading:155,destination:"Swaraj Dweep",eta:"13:45"},
+ {id:4,operator:"Nautika",name:"Nautika Pride",lat:11.720,lon:93.000,speed:20.8,heading:175,destination:"Shaheed Dweep",eta:"15:45"}
+];
+
+const map=L.map('map',{zoomControl:true}).setView([11.59901,92.82730],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+ attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+const markers={};
+const list=document.getElementById('list');
+let currentFilter="All";
+
+function popup(f){
+ return `<b>🚢 ${f.name}</b><br><span style="color:#8fa9b7">${f.operator}</span><hr>
+ <b>Speed:</b> ${f.speed.toFixed(1)} kn<br>
+ <b>Heading:</b> ${f.heading}°<br>
+ <b>Destination:</b> ${f.destination}<br>
+ <b>ETA:</b> ${f.eta}<br>
+ <span style="color:#8fe7a4">● UNDERWAY</span>`;
+}
+function draw(){
+ Object.values(markers).forEach(m=>map.removeLayer(m));
+ list.innerHTML="";
+ ferries.filter(f=>currentFilter==="All"||f.operator===currentFilter).forEach(f=>{
+   const m=L.marker([f.lat,f.lon]).addTo(map).bindPopup(popup(f));
+   markers[f.id]=m;
+   const el=document.createElement('div');
+   el.className='card';
+   el.innerHTML=`<div class="row"><div><div class="name">🚢 ${f.name}</div><div class="op">${f.operator} • To ${f.destination}</div></div><div class="badge">UNDERWAY</div></div>
+   <div class="metrics"><span><b>${f.speed.toFixed(1)}</b> kn</span><span><b>${f.heading}°</b> heading</span><span>ETA <b>${f.eta}</b></span></div>`;
+   el.onclick=()=>{map.flyTo([f.lat,f.lon],13);markers[f.id].openPopup()};
+   list.appendChild(el);
+ });
+}
+draw();
+
+document.querySelectorAll('.filter').forEach(btn=>{
+ btn.onclick=()=>{
+  document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); currentFilter=btn.dataset.filter; draw();
+ };
+});
+
+// Small simulated movement for demonstration only.
+setInterval(()=>{
+ ferries.forEach(f=>{
+   const r=f.heading*Math.PI/180;
+   f.lat += Math.cos(r)*0.00045;
+   f.lon += Math.sin(r)*0.00045;
+ });
+ draw();
+},5000);
+</script>
+</body>
+</html>
